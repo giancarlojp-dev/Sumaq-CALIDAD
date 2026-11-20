@@ -1,135 +1,286 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+function fechaRelativa(dias: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 async function main() {
-  console.log("🌱 Inicializando sistema Sumaq...");
+  console.log("🌱 Ejecutando semilla idempotente de Cobranzas y Facturación...");
 
-  await prisma.recomendacion.deleteMany();
-  await prisma.alerta.deleteMany();
-  await prisma.qaRegistro.deleteMany();
-  await prisma.movimiento.deleteMany();
-  await prisma.proyecto.deleteMany();
-  await prisma.inventario.deleteMany();
-  await prisma.usuario.deleteMany();
-
-  const usuario = await prisma.usuario.create({
-    data: {
-      nombre: "Lui Choccllo",
-      email: "luicxz.09.11@gmail.com",
+  // 1. Usuarios del sistema
+  const admin = await prisma.usuario.upsert({
+    where: { email: "admin@sumaq.local" },
+    update: { rol: "ADMIN" },
+    create: {
+      nombre: "Administrador Cobranzas",
+      email: "admin@sumaq.local",
       rol: "ADMIN",
-      passwordHash: "demo-hash",
+      passwordHash: "hash-seguro-demo",
     },
   });
 
-  const inventarioCreado = await prisma.inventario.createMany({
-    data: [
-      {
-        nombre: "Arroz Premium",
-        categoria: "Alimentos",
-        stockActual: 42,
-        ubicacion: "Zona A",
-        puntoReorden: 25,
-        capacidadMaxima: 120,
-      },
-      {
-        nombre: "Botellas de Agua",
-        categoria: "Bebidas",
-        stockActual: 16,
-        ubicacion: "Zona B",
-        puntoReorden: 20,
-        capacidadMaxima: 100,
-      },
-      {
-        nombre: "Cargador USB-C",
-        categoria: "Electrónica",
-        stockActual: 8,
-        ubicacion: "Zona C",
-        puntoReorden: 10,
-        capacidadMaxima: 60,
-      },
-    ],
+  const cobrador1 = await prisma.usuario.upsert({
+    where: { email: "cobrador1@sumaq.local" },
+    update: { rol: "COBRANZAS" },
+    create: {
+      nombre: "Gestor Cobranzas Principal",
+      email: "cobrador1@sumaq.local",
+      rol: "COBRANZAS",
+      passwordHash: "hash-seguro-demo",
+    },
   });
 
-  const inventarios = await prisma.inventario.findMany();
-  const proyecto = await prisma.proyecto.create({
+  const cobrador2 = await prisma.usuario.upsert({
+    where: { email: "cobrador2@sumaq.local" },
+    update: { rol: "COBRANZAS" },
+    create: {
+      nombre: "Gestor Cobranzas Secundario",
+      email: "cobrador2@sumaq.local",
+      rol: "COBRANZAS",
+      passwordHash: "hash-seguro-demo",
+    },
+  });
+
+  await prisma.usuario.upsert({
+    where: { email: "auditor@sumaq.local" },
+    update: { rol: "AUDITOR" },
+    create: {
+      nombre: "Auditor de Calidad",
+      email: "auditor@sumaq.local",
+      rol: "AUDITOR",
+      passwordHash: "hash-seguro-demo",
+    },
+  });
+
+  // Serie inicial
+  await prisma.serieComprobante.upsert({
+    where: { serie: "F001" },
+    update: {},
+    create: {
+      serie: "F001",
+      ultimoNumero: 0,
+    },
+  });
+
+  // Limpiar únicamente datos de cobranzas para idempotencia limpia
+  await prisma.comprobante.deleteMany();
+  await prisma.pago.deleteMany();
+  await prisma.cuota.deleteMany();
+  await prisma.cliente.deleteMany();
+
+  // -------------------------------------------------------------
+  // Escenario A: Cliente A - Al día (3 cuotas futuras de S/ 500, sin pagos)
+  // -------------------------------------------------------------
+  const clienteA = await prisma.cliente.create({
     data: {
-      nombre: "Campaña de Verano",
-      descripcion: "Aprovisionamiento para operaciones externas",
-      fechaInicio: new Date("2026-06-01"),
-      fechaFin: new Date("2026-08-31"),
-      estado: "En curso",
+      nombre: "Cliente A (Al Día)",
+      documento: "10000001",
+      email: "clientea@sumaq.local",
+      telefono: "999111001",
+      proyecto: "Ventas Lotes - Etapa 1",
+      responsableId: cobrador1.id,
+      cuotas: {
+        create: [
+          {
+            numero: 1,
+            concepto: "Cuota 01/03 Lote A-01",
+            monto: new Prisma.Decimal(500.0),
+            fechaVencimiento: fechaRelativa(15),
+          },
+          {
+            numero: 2,
+            concepto: "Cuota 02/03 Lote A-01",
+            monto: new Prisma.Decimal(500.0),
+            fechaVencimiento: fechaRelativa(45),
+          },
+          {
+            numero: 3,
+            concepto: "Cuota 03/03 Lote A-01",
+            monto: new Prisma.Decimal(500.0),
+            fechaVencimiento: fechaRelativa(75),
+          },
+        ],
+      },
     },
   });
 
-  await prisma.movimiento.createMany({
-    data: [
-      {
-        idItem: inventarios[0].id,
-        tipoMovimiento: "Entrada",
-        cantidad: 20,
+  // -------------------------------------------------------------
+  // Escenario B: Cliente B - Atraso corto (vencida hace 5 días, mora S/ 12.50)
+  // -------------------------------------------------------------
+  const clienteB = await prisma.cliente.create({
+    data: {
+      nombre: "Cliente B (Atraso Corto)",
+      documento: "10000002",
+      email: "clienteb@sumaq.local",
+      telefono: "999111002",
+      proyecto: "Ventas Lotes - Etapa 1",
+      responsableId: cobrador1.id,
+      cuotas: {
+        create: [
+          {
+            numero: 1,
+            concepto: "Cuota 01/01 Lote B-02",
+            monto: new Prisma.Decimal(500.0),
+            fechaVencimiento: fechaRelativa(-5),
+          },
+        ],
       },
-      {
-        idItem: inventarios[1].id,
-        tipoMovimiento: "Salida",
-        cantidad: 6,
-      },
-      {
-        idItem: inventarios[2].id,
-        tipoMovimiento: "Entrada",
-        cantidad: 12,
-      },
-    ],
+    },
   });
 
-  await prisma.qaRegistro.createMany({
-    data: [
-      {
-        idItem: inventarios[0].id,
-        idProyecto: proyecto.id,
-        estadoQa: "Aprobado",
-        observacion: "Cumple estándar de calidad",
+  // -------------------------------------------------------------
+  // Escenario C: Cliente C - Atraso prolongado (vencida hace 120 días, mora saturada en S/ 100.00)
+  // -------------------------------------------------------------
+  const clienteC = await prisma.cliente.create({
+    data: {
+      nombre: "Cliente C (Atraso Prolongado)",
+      documento: "10000003",
+      email: "clientec@sumaq.local",
+      telefono: "999111003",
+      proyecto: "Ventas Lotes - Etapa 1",
+      responsableId: cobrador1.id,
+      cuotas: {
+        create: [
+          {
+            numero: 1,
+            concepto: "Cuota 01/01 Lote C-03",
+            monto: new Prisma.Decimal(500.0),
+            fechaVencimiento: fechaRelativa(-120),
+          },
+        ],
       },
-      {
-        idItem: inventarios[2].id,
-        idProyecto: proyecto.id,
-        estadoQa: "En Revisión",
-        observacion: "Revisar embalaje y cableado",
-      },
-    ],
+    },
   });
 
-  await prisma.alerta.createMany({
-    data: [
-      {
-        idItem: inventarios[1].id,
-        nivelAlerta: "Rojo",
-        mensaje: "Stock por debajo del punto de reorden",
-      },
-      {
-        idItem: inventarios[2].id,
-        nivelAlerta: "Amarillo",
-        mensaje: "Demanda creciente en la próxima semana",
-      },
-    ],
+  // -------------------------------------------------------------
+  // Escenario D: Cliente D - Pago parcial (vencida hace 10 días, pago previo de S/ 200)
+  // -------------------------------------------------------------
+  const clienteD = await prisma.cliente.create({
+    data: {
+      nombre: "Cliente D (Pago Parcial)",
+      documento: "10000004",
+      email: "cliented@sumaq.local",
+      telefono: "999111004",
+      proyecto: "Ventas Lotes - Etapa 1",
+      responsableId: cobrador1.id,
+    },
   });
 
-  await prisma.recomendacion.createMany({
-    data: [
-      {
-        idItem: inventarios[2].id,
-        ubicacionSugerida: "Zona B",
-      },
-    ],
+  const cuotaD = await prisma.cuota.create({
+    data: {
+      clienteId: clienteD.id,
+      numero: 1,
+      concepto: "Cuota 01/01 Lote D-04",
+      monto: new Prisma.Decimal(500.0),
+      fechaVencimiento: fechaRelativa(-10),
+    },
   });
 
-  console.log(`👤 Usuario creado: ${usuario.nombre}`);
-  console.log(`✅ Seed completado con ${inventarioCreado.count} inventarios y 1 proyecto.`);
+  await prisma.pago.create({
+    data: {
+      cuotaId: cuotaD.id,
+      monto: new Prisma.Decimal(200.0),
+      montoMora: new Prisma.Decimal(0.0),
+      montoCapital: new Prisma.Decimal(200.0),
+      metodo: "TRANSFERENCIA",
+      referencia: "TRANS-PARCIAL-D",
+      idempotencyKey: "IDEM-PAGO-D-001",
+      registradoPorId: cobrador1.id,
+      fechaPago: fechaRelativa(-5),
+    },
+  });
+
+  // -------------------------------------------------------------
+  // Escenario E: Cliente E - Cuota pagada con comprobante F001-00000001
+  // -------------------------------------------------------------
+  const clienteE = await prisma.cliente.create({
+    data: {
+      nombre: "Cliente E (Pagada y Facturada)",
+      documento: "10000005",
+      email: "clientee@sumaq.local",
+      telefono: "999111005",
+      proyecto: "Ventas Lotes - Etapa 1",
+      responsableId: cobrador1.id,
+    },
+  });
+
+  const cuotaE = await prisma.cuota.create({
+    data: {
+      clienteId: clienteE.id,
+      numero: 1,
+      concepto: "Cuota 01/01 Lote E-05",
+      monto: new Prisma.Decimal(500.0),
+      fechaVencimiento: fechaRelativa(-20),
+    },
+  });
+
+  const pagoE = await prisma.pago.create({
+    data: {
+      cuotaId: cuotaE.id,
+      monto: new Prisma.Decimal(500.0),
+      montoMora: new Prisma.Decimal(0.0),
+      montoCapital: new Prisma.Decimal(500.0),
+      metodo: "TRANSFERENCIA",
+      referencia: "TRANS-TOTAL-E",
+      idempotencyKey: "IDEM-PAGO-E-001",
+      registradoPorId: cobrador1.id,
+      fechaPago: fechaRelativa(-1),
+    },
+  });
+
+  await prisma.serieComprobante.upsert({
+    where: { serie: "F001" },
+    update: { ultimoNumero: 1 },
+    create: { serie: "F001", ultimoNumero: 1 },
+  });
+
+  await prisma.comprobante.create({
+    data: {
+      pagoId: pagoE.id,
+      serie: "F001",
+      numero: 1,
+      montoTotal: new Prisma.Decimal(500.0),
+      emitidoEn: fechaRelativa(-1),
+      emitidoPorId: admin.id,
+      estado: "EMITIDO",
+    },
+  });
+
+  // -------------------------------------------------------------
+  // Escenario F: Cliente F - Asignado a cobrador2 (para pruebas de aislamiento de objetos)
+  // -------------------------------------------------------------
+  await prisma.cliente.create({
+    data: {
+      nombre: "Cliente F (Ajeno a Cobrador 1)",
+      documento: "10000006",
+      email: "clientef@sumaq.local",
+      telefono: "999111006",
+      proyecto: "Ventas Lotes - Etapa 2",
+      responsableId: cobrador2.id,
+      cuotas: {
+        create: [
+          {
+            numero: 1,
+            concepto: "Cuota 01/01 Lote F-06",
+            monto: new Prisma.Decimal(650.0),
+            fechaVencimiento: fechaRelativa(-15),
+          },
+        ],
+      },
+    },
+  });
+
+  console.log("✅ Semilla ejecutada con éxito. Clientes A, B, C, D, E y F listos para pruebas.");
 }
 
 main()
-  .catch((error) => {
-    console.error("❌ Error en el seed:", error);
+  .catch((e) => {
+    console.error("❌ Error en la semilla de cobranzas:", e);
     process.exit(1);
   })
   .finally(async () => {

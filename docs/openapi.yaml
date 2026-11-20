@@ -1,0 +1,281 @@
+openapi: 3.0.3
+info:
+  title: Módulo de Cobranzas y Facturación - Sumaq Workflow
+  version: 1.0.0
+  description: >
+    API REST para la gestión integral de cobranzas, cálculo de cuotas,
+    intereses moratorios, imputación de pagos y emisión de comprobantes correlativos inmutables.
+servers:
+  - url: http://localhost:3000
+    description: Servidor Local de Desarrollo y Pruebas
+
+paths:
+  /api/health:
+    get:
+      summary: Verificación de estado del servicio
+      description: Endpoint público para monitoreo de salud.
+      responses:
+        "200":
+          description: Servicio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  estado:
+                    type: string
+                    example: ok
+
+  /api/cuotas:
+    post:
+      summary: Registrar una nueva cuota
+      description: Permite al rol ADMIN crear una nueva cuota para un cliente.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clienteId, numero, concepto, monto, fechaVencimiento]
+              properties:
+                clienteId:
+                  type: string
+                  format: uuid
+                  example: 11111111-2222-3333-4444-555555555555
+                numero:
+                  type: integer
+                  minimum: 1
+                  example: 1
+                concepto:
+                  type: string
+                  maxLength: 150
+                  example: Cuota 01/12 Lote A-01
+                monto:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                  example: 500.00
+                fechaVencimiento:
+                  type: string
+                  format: date
+                  example: "2026-12-31"
+      responses:
+        "201":
+          description: Cuota creada exitosamente
+        "400":
+          description: Datos inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente (no es ADMIN)
+        "404":
+          description: Cliente no encontrado
+        "409":
+          description: Cuota duplicada para el cliente
+
+    get:
+      summary: Listar cuotas con cálculo al vuelo de mora y saldo
+      description: Retorna cuotas paginadas. COBRANZAS solo ve las de sus clientes asignados.
+      parameters:
+        - name: clienteId
+          in: query
+          schema:
+            type: string
+        - name: estado
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, parcial, vencida, pagada]
+        - name: pagina
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limite
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        "200":
+          description: Listado de cuotas obtenido exitosamente
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente
+
+  /api/pagos:
+    post:
+      summary: Registrar pago sobre una cuota
+      description: Imputa monto primero a mora y luego a capital. Soporta idempotencia mediante cabecera Idempotency-Key.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cuotaId, monto, metodo]
+              properties:
+                cuotaId:
+                  type: string
+                  format: uuid
+                monto:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                  example: 500.00
+                metodo:
+                  type: string
+                  enum: [EFECTIVO, TRANSFERENCIA, TARJETA]
+                  example: TRANSFERENCIA
+                referencia:
+                  type: string
+                  maxLength: 60
+                  example: OPERACION-123456
+      responses:
+        "200":
+          description: Pago ya procesado previamente (respuesta idempotente)
+        "201":
+          description: Pago registrado exitosamente
+        "400":
+          description: Monto inválido o excede adeudo (MONTO_EXCEDE_ADEUDO)
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente (AUDITOR no puede registrar pagos)
+        "404":
+          description: Cuota no encontrada o de cliente ajeno
+        "409":
+          description: Cuota ya pagada (CUOTA_YA_PAGADA)
+
+  /api/facturas:
+    post:
+      summary: Emitir comprobante electrónico para un pago
+      description: Genera comprobante atómico y correlativo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pagoId]
+              properties:
+                pagoId:
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Comprobante emitido con correlativo
+        "400":
+          description: Datos inválidos
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente
+        "404":
+          description: Pago no encontrado o de cliente ajeno
+        "409":
+          description: Pago ya facturado (PAGO_YA_FACTURADO)
+
+  /api/facturas/{id}:
+    get:
+      summary: Obtener detalle de comprobante
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Comprobante encontrado
+        "401":
+          description: No autenticado
+        "404":
+          description: Comprobante no encontrado o pertenece a cliente ajeno
+
+    put:
+      summary: Intento de modificación (prohibido)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente (AUDITOR)
+        "409":
+          description: Inmutabilidad garantizada (COMPROBANTE_INMUTABLE)
+
+    patch:
+      summary: Intento de modificación parcial (prohibido)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente
+        "409":
+          description: Inmutabilidad garantizada (COMPROBANTE_INMUTABLE)
+
+    delete:
+      summary: Intento de eliminación (prohibido)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente
+        "409":
+          description: Inmutabilidad garantizada (COMPROBANTE_INMUTABLE)
+
+  /api/reportes/morosidad:
+    get:
+      summary: Reporte consolidado de morosidad
+      description: Retorna clientes con cuotas vencidas, ordenados por deudaTotal descendente.
+      responses:
+        "200":
+          description: Reporte generado exitosamente
+        "401":
+          description: No autenticado
+        "403":
+          description: Rol insuficiente
+
+components:
+  schemas:
+    ErrorRespuesta:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            codigo:
+              type: string
+              example: MONTO_EXCEDE_ADEUDO
+            mensaje:
+              type: string
+              example: El monto a pagar excede el total adeudado.
