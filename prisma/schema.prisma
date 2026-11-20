@@ -18,6 +18,9 @@ model Usuario {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  clientesAtendidos Cliente[]
+  pagosRegistrados  Pago[]
 }
 
 model Inventario {
@@ -87,4 +90,89 @@ model Recomendacion {
   ubicacionSugerida String
 
   inventario        Inventario @relation(fields: [idItem], references: [id], onDelete: Cascade)
+}
+
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+}
+
+enum EstadoComprobante {
+  EMITIDO
+}
+
+model Cliente {
+  id            String    @id @default(uuid())
+  nombre        String    @db.VarChar(120)
+  documento     String    @unique @db.VarChar(20)
+  email         String?   @db.VarChar(120)
+  telefono      String?   @db.VarChar(30)
+  proyecto      String    @db.VarChar(150)
+  responsableId String?
+  creadoEn      DateTime  @default(now())
+
+  responsable   Usuario?  @relation(fields: [responsableId], references: [id], onDelete: SetNull)
+  cuotas        Cuota[]
+
+  @@index([responsableId])
+}
+
+model Cuota {
+  id               String    @id @default(uuid())
+  clienteId        String
+  numero           Int
+  concepto         String    @db.VarChar(150)
+  monto            Decimal   @db.Decimal(12, 2)
+  fechaVencimiento DateTime  @db.Date
+  creadoEn         DateTime  @default(now())
+
+  cliente          Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagos            Pago[]
+
+  @@unique([clienteId, numero])
+  @@index([clienteId])
+  @@index([fechaVencimiento])
+}
+
+model Pago {
+  id             String      @id @default(uuid())
+  cuotaId        String
+  monto          Decimal     @db.Decimal(12, 2)
+  montoMora      Decimal     @db.Decimal(12, 2)
+  montoCapital   Decimal     @db.Decimal(12, 2)
+  metodo         MetodoPago
+  referencia     String?     @db.VarChar(60)
+  idempotencyKey String?     @unique @db.VarChar(100)
+  registradoPorId String
+  fechaPago      DateTime    @default(now())
+  creadoEn       DateTime    @default(now())
+
+  cuota          Cuota       @relation(fields: [cuotaId], references: [id], onDelete: Cascade)
+  registradoPor  Usuario     @relation(fields: [registradoPorId], references: [id], onDelete: Restrict)
+  comprobante    Comprobante?
+
+  @@index([cuotaId])
+  @@index([registradoPorId])
+}
+
+model Comprobante {
+  id           String             @id @default(uuid())
+  pagoId       String             @unique
+  serie        String             @db.VarChar(10)
+  numero       Int
+  montoTotal   Decimal            @db.Decimal(12, 2)
+  emitidoEn    DateTime           @default(now())
+  emitidoPorId String
+  estado       EstadoComprobante  @default(EMITIDO)
+
+  pago         Pago               @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+
+  @@unique([serie, numero])
+  @@index([pagoId])
+}
+
+model SerieComprobante {
+  serie        String @id @db.VarChar(10)
+  ultimoNumero Int    @default(0)
 }
