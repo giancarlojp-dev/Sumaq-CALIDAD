@@ -1,0 +1,90 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id           String @id @default(uuid())
+  nombre       String
+  email        String @unique
+  rol          String
+  passwordHash String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Inventario {
+  id              String   @id @default(uuid())
+  nombre          String
+  categoria       String
+  stockActual     Int
+  ubicacion       String
+  puntoReorden    Int
+  capacidadMaxima Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  movimientos     Movimiento[]
+  alertas         Alerta[]
+  recomendaciones Recomendacion[]
+  qaRegistros     QaRegistro[]
+}
+
+model Movimiento {
+  id             String   @id @default(uuid())
+  idItem         String
+  fecha          DateTime @default(now())
+  tipoMovimiento String
+  cantidad       Int
+
+  inventario     Inventario @relation(fields: [idItem], references: [id], onDelete: Cascade)
+}
+
+model Proyecto {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  fechaInicio DateTime
+  fechaFin    DateTime?
+  estado      String
+
+  qaRegistros QaRegistro[]
+}
+
+model QaRegistro {
+  id          String   @id @default(uuid())
+  idItem      String
+  idProyecto  String
+  fecha       DateTime @default(now())
+  estadoQa    String
+  observacion String?
+
+  inventario  Inventario @relation(fields: [idItem], references: [id], onDelete: Cascade)
+  proyecto    Proyecto   @relation(fields: [idProyecto], references: [id], onDelete: Cascade)
+}
+
+model Alerta {
+  id          String   @id @default(uuid())
+  idItem      String
+  fecha       DateTime @default(now())
+  nivelAlerta String
+  mensaje     String
+
+  inventario  Inventario @relation(fields: [idItem], references: [id], onDelete: Cascade)
+}
+
+model Recomendacion {
+  id                String   @id @default(uuid())
+  idItem            String
+  fecha             DateTime @default(now())
+  ubicacionSugerida String
+
+  inventario        Inventario @relation(fields: [idItem], references: [id], onDelete: Cascade)
+}

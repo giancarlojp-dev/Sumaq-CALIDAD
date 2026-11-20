@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/* ESTRATEGIA SUMAQ:
+   Invertimos los valores: Ponemos los colores OSCUROS en :root
+   para que sea la apariencia por defecto (SaaS Corporativo).
+*/
+:root {
+  --radius: 0.625rem;
+  
+  /* Fondo Azul Sumaq Oscuro por defecto */
+  --background: oklch(0.13 0.04 264); 
+  --foreground: oklch(0.98 0.00 247);
+
+  --card: oklch(0.15 0.04 264);
+  --card-foreground: oklch(0.98 0.00 247);
+  
+  --popover: oklch(0.15 0.04 264);
+  --popover-foreground: oklch(0.98 0.00 247);
+  
+  /* Azul Vibrante para botones */
+  --primary: oklch(0.48 0.24 264);
+  --primary-foreground: oklch(0.98 0.00 247);
+  
+  --secondary: oklch(0.28 0.04 260);
+  --secondary-foreground: oklch(0.98 0.00 247);
+  
+  --muted: oklch(0.28 0.04 260);
+  --muted-foreground: oklch(0.70 0.04 256);
+  
+  --accent: oklch(0.28 0.04 260);
+  --accent-foreground: oklch(0.98 0.00 247);
+  
+  --destructive: oklch(0.60 0.20 22); /* Rojo Sumaq */
+  --destructive-foreground: oklch(0.98 0.00 247);
+
+  --border: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.48 0.24 264);
+
+  /* Gráficos */
+  --chart-1: oklch(0.48 0.24 264);
+  --chart-2: oklch(0.60 0.20 22);
+  --chart-3: oklch(0.76 0.18 70);
+  --chart-4: oklch(0.62 0.26 303);
+  --chart-5: oklch(0.64 0.24 16);
+  
+  /* Sidebar Oscura */
+  --sidebar: oklch(0.11 0.04 264);
+  --sidebar-foreground: oklch(0.98 0.00 247);
+  --sidebar-primary: oklch(0.48 0.24 264);
+  --sidebar-primary-foreground: oklch(0.98 0.00 247);
+  --sidebar-accent: oklch(0.28 0.04 260);
+  --sidebar-accent-foreground: oklch(0.98 0.00 247);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.48 0.24 264);
+}
+
+/* BASE GLOBALES
+   Aseguramos que Tailwind aplique estos colores al body
+*/
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring), transparent 50%);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter, Arial), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Utility: subtle glass card style used across the app */
+.glass-card {
+  background-color: color-mix(in oklch, var(--card), white 4%);
+  backdrop-filter: blur(6px) saturate(110%);
+  box-shadow: 0 6px 18px rgba(2,6,23,0.45);
+  border-radius: 12px;
+}
+
+/* Layout helper container */
+.app-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
