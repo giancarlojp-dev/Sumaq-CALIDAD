@@ -147,7 +147,7 @@ describe("Pruebas de integración de Cobranzas contra DATABASE_URL_TEST", () => 
         numero: 1,
         concepto: "Cuota 1 - Noviembre",
         monto: 500,
-        fechaVencimiento: "2026-11-10T05:00:00.000Z",
+        fechaVencimiento: "2026-11-10T12:00:00.000Z",
       },
       ctxAdmin,
     );
@@ -159,7 +159,7 @@ describe("Pruebas de integración de Cobranzas contra DATABASE_URL_TEST", () => 
           numero: 1,
           concepto: "Duplicada",
           monto: 500,
-          fechaVencimiento: "2026-11-10T05:00:00.000Z",
+          fechaVencimiento: "2026-11-10T12:00:00.000Z",
         },
         ctxAdmin,
       ),
@@ -327,7 +327,7 @@ describe("Pruebas de integración de Route Handlers con Request contra DATABASE_
         numero: 1,
         concepto: "Cuota bloqueada",
         monto: 500,
-        fechaVencimiento: "2026-11-10T05:00:00.000Z",
+        fechaVencimiento: "2026-11-10T12:00:00.000Z",
       }),
     });
     const res = await postCuota(req);
