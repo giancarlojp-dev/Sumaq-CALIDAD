@@ -37,7 +37,9 @@ describe("Dominio puro - CP-01 a CP-10 y casos borde", () => {
   });
 
   test("CP-08: tipo no numérico o NaN lanza TypeError", () => {
-    expect(() => calcularMora("15" as unknown as number, 500)).toThrow(TypeError);
+    expect(() => calcularMora("15" as unknown as number, 500)).toThrow(
+      TypeError,
+    );
     expect(() => calcularMora(Number.NaN, 500)).toThrow(TypeError);
     expect(() => calcularSaldo(Number.NaN, [])).toThrow(TypeError);
     expect(() => calcularSaldo(500, [Number.NaN])).toThrow(TypeError);
@@ -52,19 +54,32 @@ describe("Dominio puro - CP-01 a CP-10 y casos borde", () => {
   });
 
   test("diasDeAtraso y estadoCuota consideran vencida, parcial y pendiente", () => {
-    expect(diasDeAtraso(new Date("2026-11-15T05:00:00.000Z"), new Date("2026-11-10T05:00:00.000Z"))).toBe(0);
-    expect(diasDeAtraso("2026-11-10T05:00:00.000Z", "2026-11-15T05:00:00.000Z")).toBe(5);
+    expect(
+      diasDeAtraso(
+        new Date("2026-11-15T05:00:00.000Z"),
+        new Date("2026-11-10T05:00:00.000Z"),
+      ),
+    ).toBe(0);
+    expect(
+      diasDeAtraso("2026-11-10T05:00:00.000Z", "2026-11-15T05:00:00.000Z"),
+    ).toBe(5);
+    expect(
+      diasDeAtraso(
+        new Date("2026-11-10T00:00:00.000Z"),
+        new Date("2026-11-20T12:00:00.000Z"),
+      ),
+    ).toBe(10);
     expect(
       estadoCuota(500, [100], {
         fechaVencimiento: "2026-11-10T05:00:00.000Z",
         hoy: "2026-11-15T05:00:00.000Z",
-      })
+      }),
     ).toBe("vencida");
     expect(
       estadoCuota(500, [100], {
         fechaVencimiento: "2026-11-25T05:00:00.000Z",
         hoy: "2026-11-15T05:00:00.000Z",
-      })
+      }),
     ).toBe("parcial");
     expect(estadoCuota(500, [])).toBe("pendiente");
   });

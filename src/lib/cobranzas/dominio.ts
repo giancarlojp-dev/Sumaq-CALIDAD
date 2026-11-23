@@ -14,7 +14,12 @@ export interface OpcionesEstadoCuota {
  * Mora = montoBase * 0.005 * diasAtraso, con tope al 20% de montoBase.
  */
 export function calcularMora(diasAtraso: number, montoBase: number): number {
-  if (typeof diasAtraso !== "number" || typeof montoBase !== "number" || Number.isNaN(diasAtraso) || Number.isNaN(montoBase)) {
+  if (
+    typeof diasAtraso !== "number" ||
+    typeof montoBase !== "number" ||
+    Number.isNaN(diasAtraso) ||
+    Number.isNaN(montoBase)
+  ) {
     throw new TypeError("diasAtraso y montoBase deben ser valores numéricos.");
   }
   if (montoBase <= 0) {
@@ -27,8 +32,8 @@ export function calcularMora(diasAtraso: number, montoBase: number): number {
     return 0;
   }
 
-  const moraCalculada = Math.round((montoBase * 0.005 * diasAtraso) * 100) / 100;
-  const topeMora = Math.round((montoBase * 0.20) * 100) / 100;
+  const moraCalculada = Math.round(montoBase * 0.005 * diasAtraso * 100) / 100;
+  const topeMora = Math.round(montoBase * 0.2 * 100) / 100;
 
   return Math.min(moraCalculada, topeMora);
 }
@@ -37,7 +42,10 @@ export function calcularMora(diasAtraso: number, montoBase: number): number {
  * Calcula el saldo restante de una cuota restando los pagos acumulados.
  * Devuelve max(montoCuota - suma(pagos), 0) con 2 decimales.
  */
-export function calcularSaldo(montoCuota: number, pagos: number[] = []): number {
+export function calcularSaldo(
+  montoCuota: number,
+  pagos: number[] = [],
+): number {
   if (typeof montoCuota !== "number" || Number.isNaN(montoCuota)) {
     throw new TypeError("montoCuota debe ser numérico.");
   }
@@ -54,21 +62,33 @@ export function calcularSaldo(montoCuota: number, pagos: number[] = []): number 
 }
 
 /**
- * Determina los días calendario transcurridos desde el vencimiento hasta hoy en UTC-5 (America/Lima).
+ * Determina días calendario desde la fecha de vencimiento hasta hoy en UTC-5 (America/Lima).
  * Sin periodo de gracia: el día siguiente al vencimiento cuenta como 1 día de atraso.
  */
-export function diasDeAtraso(fechaVencimiento: Date | string, hoy: Date | string): number {
-  const parseFechaUTC5 = (fecha: Date | string): number => {
-    const d = typeof fecha === "string" ? new Date(fecha) : new Date(fecha.getTime());
-    // Ajustar a medianoche local UTC-5
-    const utcMs = d.getTime() + (d.getTimezoneOffset() * 60000);
-    const offsetLima = -5 * 3600000;
-    const limaDate = new Date(utcMs + offsetLima);
-    return Date.UTC(limaDate.getUTCFullYear(), limaDate.getUTCMonth(), limaDate.getUTCDate());
+export function diasDeAtraso(
+  fechaVencimiento: Date | string,
+  hoy: Date | string,
+): number {
+  const parseFecha = (fecha: Date | string): Date => {
+    const d =
+      typeof fecha === "string" ? new Date(fecha) : new Date(fecha.getTime());
+    return d;
   };
 
-  const msVencimiento = parseFechaUTC5(fechaVencimiento);
-  const msHoy = parseFechaUTC5(hoy);
+  // fechaVencimiento is a database DATE, so its UTC calendar components are authoritative.
+  const vencimiento = parseFecha(fechaVencimiento);
+  const msVencimiento = Date.UTC(
+    vencimiento.getUTCFullYear(),
+    vencimiento.getUTCMonth(),
+    vencimiento.getUTCDate(),
+  );
+
+  const hoyLima = new Date(parseFecha(hoy).getTime() - 5 * 60 * 60 * 1000);
+  const msHoy = Date.UTC(
+    hoyLima.getUTCFullYear(),
+    hoyLima.getUTCMonth(),
+    hoyLima.getUTCDate(),
+  );
 
   if (msHoy <= msVencimiento) {
     return 0;
@@ -89,7 +109,7 @@ export function diasDeAtraso(fechaVencimiento: Date | string, hoy: Date | string
 export function estadoCuota(
   montoCuota: number,
   pagos: number[] = [],
-  opciones?: OpcionesEstadoCuota
+  opciones?: OpcionesEstadoCuota,
 ): "pagada" | "vencida" | "parcial" | "pendiente" {
   const saldo = calcularSaldo(montoCuota, pagos);
   if (saldo === 0) {
@@ -119,7 +139,7 @@ export function estadoCuota(
 export function aplicarPago(
   saldoCapital: number,
   moraVigente: number,
-  monto: number
+  monto: number,
 ): { aMora: number; aCapital: number } {
   if (typeof monto !== "number" || Number.isNaN(monto) || monto <= 0) {
     throw new RangeError("El monto a pagar debe ser mayor a cero.");
@@ -140,7 +160,10 @@ export function aplicarPago(
  * Formatea número correlativo con serie: serie + '-' + número con 8 dígitos.
  * Ejemplo: ('F001', 1) -> 'F001-00000001'.
  */
-export function formatearNumeroComprobante(serie: string, numero: number): string {
+export function formatearNumeroComprobante(
+  serie: string,
+  numero: number,
+): string {
   const pad = String(numero).padStart(8, "0");
   return `${serie}-${pad}`;
 }
