@@ -1,0 +1,95 @@
+name: CI Cobranzas (ISO/IEC 25010)
+
+on:
+  push:
+    branches:
+      - "feature/**"
+      - develop
+      - main
+  pull_request:
+    branches:
+      - "feature/**"
+      - develop
+      - main
+
+jobs:
+  calidad-cobranzas:
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://sumaq_test:sumaq_test_pass@127.0.0.1:5432/sumaq_dev_dummy
+      DATABASE_URL_TEST: postgresql://sumaq_test:sumaq_test_pass@127.0.0.1:5432/sumaq_cobranzas_test
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sumaq_test
+          POSTGRES_PASSWORD: sumaq_test_pass
+          POSTGRES_DB: sumaq_cobranzas_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Instalar dependencias limpias (npm ci)
+        run: npm ci
+
+      - name: Generar cliente Prisma
+        run: npx prisma generate
+
+      - name: Análisis estático ESLint (complejidad <= 10 en módulo Cobranzas)
+        run: npx eslint src/lib/cobranzas src/services/cobranzas
+
+      - name: Pruebas unitarias (Jest)
+        run: npm run test:unit
+
+      - name: Aplicar migraciones Prisma en base de pruebas PostgreSQL
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_TEST }}
+        run: npx prisma migrate deploy
+
+      - name: Pruebas de integración (PostgreSQL)
+        run: npm run test:integration
+
+      - name: Verificación de cobertura (>= 80%)
+        run: npm run test:coverage
+
+      - name: Compilar aplicación para producción (next build)
+        run: npm run build
+
+      - name: Cargar datos para pruebas de API
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_TEST }}
+        run: npm run db:seed:cobranzas
+
+      - name: Pruebas de sistema / API con Newman
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_TEST }}
+        run: |
+          npx next start -p 3001 -H 127.0.0.1 >/tmp/next-server.log 2>&1 &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3001/api/health >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          npx newman run postman/cobranzas-api.postman_collection.json --env-var baseUrl=http://127.0.0.1:3001
