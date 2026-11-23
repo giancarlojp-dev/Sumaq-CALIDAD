@@ -1,3 +1,16 @@
+CREATE TABLE IF NOT EXISTS "Usuario" (
+"id" TEXT NOT NULL,
+"nombre" TEXT NOT NULL,
+"email" TEXT NOT NULL,
+"rol" TEXT NOT NULL,
+"passwordHash" TEXT NOT NULL,
+"createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+"updatedAt" TIMESTAMP(3) NOT NULL,
+
+CONSTRAINT "Usuario_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Usuario_email_key" ON "Usuario"("email");
 -- CreateEnum
 CREATE TYPE "MetodoPago" AS ENUM ('EFECTIVO', 'TRANSFERENCIA', 'TARJETA');
 
@@ -130,3 +143,4 @@ ALTER TABLE "Comprobante" ADD CONSTRAINT "Comprobante_pagoId_fkey" FOREIGN KEY (
 -- BEFORE UPDATE OR DELETE ON "Comprobante"
 -- FOR EACH ROW
 -- EXECUTE FUNCTION impedir_modificacion_comprobante();
+

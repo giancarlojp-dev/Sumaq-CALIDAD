@@ -1,0 +1,182 @@
+{
+  "info": {
+    "name": "Sumaq Cobranzas API - Pruebas de Sistema",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "cuotaId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health check API",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "health"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 en /api/health', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Estado ok', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.estado).to.eql('ok');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listar cuotas (GET /api/cuotas)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/cuotas?pagina=1&limite=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuotas"],
+          "query": [
+            { "key": "pagina", "value": "1" },
+            { "key": "limite", "value": "10" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 en /api/cuotas', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Retorna arreglo datos', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(Array.isArray(json.datos)).to.be.true;",
+              "  if (json.datos.length > 0) {",
+              "    pm.collectionVariables.set('cuotaId', json.datos[0].id);",
+              "  }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Crear cuota inválida retorna 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"clienteId\":\"\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/cuotas",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "cuotas"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 por datos inválidos', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "pm.test('Código de error esperado', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.error).to.be.an('object');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reporte morosidad (GET /api/reportes/morosidad)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/reportes/morosidad",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "reportes", "morosidad"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 en reporte de morosidad', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Respuesta es arreglo', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(Array.isArray(json)).to.be.true;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pago que excede adeudo retorna 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"cuotaId\":\"{{cuotaId}}\",\"monto\":999999,\"metodo\":\"EFECTIVO\"}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/pagos",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "pagos"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 400 al exceder adeudo', function () {",
+              "  pm.response.to.have.status(400);",
+              "});",
+              "pm.test('Código MONTO_EXCEDE_ADEUDO', function () {",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.error.codigo).to.eql('MONTO_EXCEDE_ADEUDO');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}
